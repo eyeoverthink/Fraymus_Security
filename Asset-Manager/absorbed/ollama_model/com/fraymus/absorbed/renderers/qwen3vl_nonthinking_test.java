@@ -1,0 +1,313 @@
+package com.fraymus.absorbed.renderers;
+
+import java.util.*;
+import java.io.*;
+
+public class qwen3vl_nonthinking_test {
+        "testing";
+        "github.com/google/go-cmp/cmp";
+        "github.com/ollama/ollama/api";
+        );
+
+    public static void TestQwen3VLNonThinkingRenderer(*testing.T t) {
+        var tests = []struct {
+        name       String;
+        msgs       []api.Message;
+        images     []api.ImageData;
+        tools      []api.Tool;
+        useImgTags boolean;
+        expected   String;
+        }{
+        {
+        name: "prefill",;
+        msgs: []api.Message{
+        {Role: "system", Content: "You are a helpful assistant."},;
+        {Role: "user", Content: "Tell me something interesting."},;
+        {Role: "assistant", Content: "I'll tell you something interesting about cats"},;
+        },;
+        expected: `<|im_start|>system;
+        You are a helpful assistant.<|im_end|>;
+        <|im_start|>user;
+        Tell me something interesting.<|im_end|>;
+        <|im_start|>assistant;
+        I'll tell you something interesting about cats`,;
+        },;
+        {
+        name: "basic",;
+        msgs: []api.Message{
+        {Role: "system", Content: "You are a helpful assistant."},;
+        {Role: "user", Content: "Hello, how are you?"},;
+        },;
+        expected: `<|im_start|>system;
+        You are a helpful assistant.<|im_end|>;
+        <|im_start|>user;
+        Hello, how are you?<|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "With thinking, end assistant.",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Tell me a story in two sentences."},;
+        {Role: "assistant", Content: "abc<think>To make this story interesting, I will speak in poetry.</think>"}, // does the thinking even work?;
+        },;
+        expected: `<|im_start|>user;
+        Tell me a story in two sentences.<|im_end|>;
+        <|im_start|>assistant;
+        abc<think>To make this story interesting, I will speak in poetry.</think>`,;
+        },;
+        {
+        name: "Multiple thinking",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Tell me a story in two sentences."},;
+        {Role: "assistant", Content: "abc<think>To make this story interesting, I will speak in poetry.</think><think>And I will speak in poetry after the first sentence.</think>"},;
+        },;
+        expected: `<|im_start|>user;
+        Tell me a story in two sentences.<|im_end|>;
+        <|im_start|>assistant;
+        abc<think>To make this story interesting, I will speak in poetry.</think><think>And I will speak in poetry after the first sentence.</think>`, // NOTE: the second thinking tag is not captured;
+        },;
+        {
+        name: "Multiple thinking, multiple messages.",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Tell me a story in two sentences."},;
+        {Role: "assistant", Content: "abc<think>To make this story interesting, I will speak in poetry.</think><think>And I will speak in poetry after the first sentence.</think>"},;
+        {Role: "user", Content: "What is the weather like in San Francisco? <think>I will check the weather in San Francisco for you.</think>"},;
+        {Role: "assistant", Content: "I'll check the weather in San Francisco for you.<think>Speak poetry after the first sentence.</think><think>Speak poetry after the second sentence.</think>"},;
+        },;
+        expected: `<|im_start|>user;
+        Tell me a story in two sentences.<|im_end|>;
+        <|im_start|>assistant;
+        abc<think>To make this story interesting, I will speak in poetry.</think><think>And I will speak in poetry after the first sentence.</think><|im_end|>;
+        <|im_start|>user;
+        What is the weather like in San Francisco? <think>I will check the weather in San Francisco for you.</think><|im_end|>;
+        <|im_start|>assistant;
+        I'll check the weather in San Francisco for you.<think>Speak poetry after the first sentence.</think><think>Speak poetry after the second sentence.</think>`,;
+        },;
+        {
+        name: "Image",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Describe this image.", Images: []api.ImageData{api.ImageData("img2")}},;
+        {Role: "assistant", Content: "Let me analyze this image."},;
+        },;
+        expected: `<|im_start|>user;
+        <|vision_start|><|image_pad|><|vision_end|>Describe this image.<|im_end|>;
+        <|im_start|>assistant;
+        Let me analyze this image.`,;
+        },;
+        {
+        name: "Image with image tags",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Describe this image.", Images: []api.ImageData{api.ImageData("img2")}},;
+        {Role: "assistant", Content: "Let me analyze this image."},;
+        },;
+        useImgTags: true,;
+        expected: `<|im_start|>user;
+        [img-0]Describe this image.<|im_end|>;
+        <|im_start|>assistant;
+        Let me analyze this image.`,;
+        },;
+        {
+        name: "Multiple images",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Describe these images.", Images: []api.ImageData{api.ImageData("img1"), api.ImageData("img2")}},;
+        },;
+        expected: `<|im_start|>user;
+        <|vision_start|><|image_pad|><|vision_end|><|vision_start|><|image_pad|><|vision_end|>Describe these images.<|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "Multiple images with image tags",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Describe these images.", Images: []api.ImageData{api.ImageData("img1"), api.ImageData("img2")}},;
+        {Role: "assistant", Content: "Let me analyze this image."},;
+        },;
+        useImgTags: true,;
+        expected: `<|im_start|>user;
+        [img-0][img-1]Describe these images.<|im_end|>;
+        <|im_start|>assistant;
+        Let me analyze this image.`,;
+        },;
+        {
+        name: "user tool_response block preserved",;
+        msgs: []api.Message{
+        {Role: "user", Content: "What's the weather?"},;
+        {
+        Role:    "assistant",;
+        Content: "I'll check.",;
+        ToolCalls: []api.ToolCall{
+        {Function: api.ToolCallFunction{Name: "get-current-weather", Arguments: testArgsOrdered([]orderedArg{{"location", "Paris"}, {"unit", "celsius"}})}},;
+        },;
+        },;
+        {Role: "user", Content: "<tool_response>\n18\n</tool_response>"},;
+        {Role: "user", Content: "Thanks!"},;
+        },;
+        expected: `<|im_start|>user;
+        What's the weather?<|im_end|>;
+        <|im_start|>assistant;
+        I'll check.;
+        <tool_call>;
+        {"name": "get-current-weather", "arguments": {"location": "Paris", "unit": "celsius"}}
+        </tool_call><|im_end|>;
+        <|im_start|>user;
+        <tool_response>;
+        18;
+        </tool_response><|im_end|>;
+        <|im_start|>user;
+        Thanks!<|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "assistant with multiple tool calls and content",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Hi"},;
+        {
+        Role:    "assistant",;
+        Content: "before",;
+        ToolCalls: []api.ToolCall{
+        {Function: api.ToolCallFunction{Name: "add", Arguments: testArgsOrdered([]orderedArg{{"a", 2}, {"b", 3}})}},;
+        {Function: api.ToolCallFunction{Name: "mul", Arguments: testArgsOrdered([]orderedArg{{"x", 4}, {"y", 5}})}},;
+        },;
+        },;
+        },;
+        expected: `<|im_start|>user;
+        Hi<|im_end|>;
+        <|im_start|>assistant;
+        before;
+        <tool_call>;
+        {"name": "add", "arguments": {"a": 2, "b": 3}}
+        </tool_call>;
+        <tool_call>;
+        {"name": "mul", "arguments": {"x": 4, "y": 5}}
+        </tool_call>`,;
+        },;
+        {
+        name: "consecutive tool responses grouped",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Compute results"},;
+        {Role: "assistant", Content: "ok", ToolCalls: []api.ToolCall{{Function: api.ToolCallFunction{Name: "job", Arguments: testArgs(map[String]any{"n": 1})}}}},;
+        {Role: "tool", Content: "5", ToolName: "job"},;
+        {Role: "tool", Content: "6", ToolName: "job"},;
+        },;
+        expected: `<|im_start|>user;
+        Compute results<|im_end|>;
+        <|im_start|>assistant;
+        ok;
+        <tool_call>;
+        {"name": "job", "arguments": {"n": 1}}
+        </tool_call><|im_end|>;
+        <|im_start|>user;
+        <tool_response>;
+        5;
+        </tool_response>;
+        <tool_response>;
+        6;
+        </tool_response><|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "last message is tool then prefill",;
+        msgs: []api.Message{
+        {Role: "user", Content: "run"},;
+        {Role: "assistant", Content: "ok", ToolCalls: []api.ToolCall{{Function: api.ToolCallFunction{Name: "exec", Arguments: testArgs(map[String]any{"cmd": "ls"})}}}},;
+        {Role: "tool", Content: "done", ToolName: "exec"},;
+        },;
+        expected: `<|im_start|>user;
+        run<|im_end|>;
+        <|im_start|>assistant;
+        ok;
+        <tool_call>;
+        {"name": "exec", "arguments": {"cmd": "ls"}}
+        </tool_call><|im_end|>;
+        <|im_start|>user;
+        <tool_response>;
+        done;
+        </tool_response><|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "user with multiple images",;
+        msgs: []api.Message{
+        {Role: "user", Content: "Describe.", Images: []api.ImageData{api.ImageData("img1"), api.ImageData("img2")}},;
+        },;
+        expected: `<|im_start|>user;
+        <|vision_start|><|image_pad|><|vision_end|><|vision_start|><|image_pad|><|vision_end|>Describe.<|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "user tool_response, no whitespace",;
+        msgs: []api.Message{
+        {Role: "user", Content: "What's the weather?"},;
+        {
+        Role:    "assistant",;
+        Content: "I'll check.",;
+        ToolCalls: []api.ToolCall{
+        {Function: api.ToolCallFunction{Name: "get-current-weather", Arguments: testArgsOrdered([]orderedArg{{"location", "Paris"}, {"unit", "celsius"}})}},;
+        },;
+        },;
+        {Role: "user", Content: "<tool_response>\n18\n</tool_response>"},;
+        {Role: "user", Content: "Thanks!"},;
+        },;
+        expected: `<|im_start|>user;
+        What's the weather?<|im_end|>;
+        <|im_start|>assistant;
+        I'll check.;
+        <tool_call>;
+        {"name": "get-current-weather", "arguments": {"location": "Paris", "unit": "celsius"}}
+        </tool_call><|im_end|>;
+        <|im_start|>user;
+        <tool_response>;
+        18;
+        </tool_response><|im_end|>;
+        <|im_start|>user;
+        Thanks!<|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+        {
+        name: "user tool_response with surrounding whitespace",;
+        msgs: []api.Message{
+        {Role: "user", Content: "What's the weather?"},;
+        {
+        Role:    "assistant",;
+        Content: "I'll check.",;
+        ToolCalls: []api.ToolCall{
+        {Function: api.ToolCallFunction{Name: "get-current-weather", Arguments: testArgsOrdered([]orderedArg{{"location", "Paris"}, {"unit", "celsius"}})}},;
+        },;
+        },;
+        {Role: "user", Content: "\n\n\n\n<tool_response>\n18\n</tool_response> extra\n\n\n\n\n\n"},;
+        },;
+        expected: `<|im_start|>user;
+        What's the weather?<|im_end|>;
+        <|im_start|>assistant;
+        I'll check.;
+        <tool_call>;
+        {"name": "get-current-weather", "arguments": {"location": "Paris", "unit": "celsius"}}
+        </tool_call><|im_end|>;
+        <|im_start|>user;
+        <tool_response>;
+        18;
+        </tool_response> extra;
+        <|im_end|>;
+        <|im_start|>assistant;
+        `,;
+        },;
+    }
+        var for _, tt = range tests {
+        t.Run(tt.name, func(t *testing.T) {
+        var rendered, err = (&Qwen3VLRenderer{isThinking: false, useImgTags: tt.useImgTags}).Render(tt.msgs, tt.tools, null);
+        if err != null {
+        t.Fatal(err);
+    }
+        var if diff = cmp.Diff(rendered, tt.expected); diff != "" {
+        t.Errorf("mismatch (-got +want):\n%s", diff);
+    }
+        });
+    }
+    }
+}

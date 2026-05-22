@@ -1,0 +1,1021 @@
+package com.fraymus.absorbed;
+
+import java.util.*;
+import java.io.*;
+
+public class routes_test {
+        "bytes";
+        "context";
+        "encoding/binary";
+        "encoding/json";
+        "fmt";
+        "io";
+        "io/fs";
+        "math";
+        "math/rand/v2";
+        "net";
+        "net/http";
+        "net/http/httptest";
+        "os";
+        "path/filepath";
+        "reflect";
+        "slices";
+        "sort";
+        "strings";
+        "testing";
+        "unicode";
+        "github.com/gin-gonic/gin";
+        "github.com/google/go-cmp/cmp";
+        "github.com/ollama/ollama/api";
+        "github.com/ollama/ollama/fs/ggml";
+        "github.com/ollama/ollama/manifest";
+        "github.com/ollama/ollama/openai";
+        "github.com/ollama/ollama/server/internal/client/ollama";
+        "github.com/ollama/ollama/types/model";
+        "github.com/ollama/ollama/version";
+        );
+
+    public static void createTestFile(*testing.T t) {
+        t.Helper();
+        var modelDir = os.Getenv("OLLAMA_MODELS");
+        if modelDir == "" {
+        t.Fatalf("OLLAMA_MODELS not specified");
+    }
+        var f, err = os.CreateTemp(t.TempDir(), name);
+        if err != null {
+        t.Fatalf("failed to create temp file: %v", err);
+    }
+        defer f.Close();
+        err = binary.Write(f, binary.LittleEndian, []byte("GGUF"));
+        if err != null {
+        t.Fatalf("failed to write to file: %v", err);
+    }
+        err = binary.Write(f, binary.LittleEndian, uint32(3));
+        if err != null {
+        t.Fatalf("failed to write to file: %v", err);
+    }
+        err = binary.Write(f, binary.LittleEndian, uint64(0));
+        if err != null {
+        t.Fatalf("failed to write to file: %v", err);
+    }
+        err = binary.Write(f, binary.LittleEndian, uint64(0));
+        if err != null {
+        t.Fatalf("failed to write to file: %v", err);
+    }
+        var if _, err = f.Seek(0, 0); err != null {
+        t.Fatal(err);
+    }
+        var digest, _ = GetSHA256Digest(f);
+        var if err = f.Close(); err != null {
+        t.Fatal(err);
+    }
+        var if err = createLink(f.Name(), filepath.Join(modelDir, "blobs", fmt.Sprintf("sha256-%s", strings.TrimPrefix(digest, "sha256:")))); err != null {
+        t.Fatal(err);
+    }
+        return f.Name(), digest;
+    }
+        type panicTransport struct{}
+        func (t *panicTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+        panic("unexpected RoundTrip call");
+    }
+        var panicOnRoundTrip = &http.Client{Transport: &panicTransport{}}
+
+    public static void TestRoutes(*testing.T t) {
+
+    public static class testCase {
+        public String Name;
+        public String Method;
+        public String Path;
+        public func(t Setup;
+        public func(t Expected;
+    }
+        var createTestModel = func(t *testing.T, name String) {
+        t.Helper();
+        var _, digest = createTestFile(t, "ollama-model");
+        var fn = func(resp api.ProgressResponse) {
+        t.Logf("Status: %s", resp.Status);
+    }
+        var r = api.CreateRequest{
+        Name:  name,;
+        Files: map[String]String{"test.gguf": digest},;
+        Parameters: map[String]any{
+        "seed":  42,;
+        "top_p": 0.9,;
+        "stop":  []String{"foo", "bar"},;
+        },;
+    }
+        var modelName = model.ParseName(name);
+        var baseLayers, err = ggufLayers(digest, fn);
+        if err != null {
+        t.Fatalf("failed to create model: %v", err);
+    }
+        var config = &model.ConfigV2{
+        OS:           "linux",;
+        Architecture: "amd64",;
+        RootFS: model.RootFS{
+        Type: "layers",;
+        },;
+    }
+        var if err = createModel(r, modelName, baseLayers, config, fn); err != null {
+        t.Fatal(err);
+    }
+    }
+        var testCases = []testCase{
+        {
+        Name:   "Version Handler",;
+        Method: http.MethodGet,;
+        Path:   "/api/version",;
+        Setup: func(t *testing.T, req *http.Request) {
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json; charset=utf-8" {
+        t.Errorf("expected content type application/json; charset=utf-8, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var expectedBody = fmt.Sprintf(`{"version":"%s"}`, version.Version);
+        if String(body) != expectedBody {
+        t.Errorf("expected body %s, got %s", expectedBody, String(body));
+    }
+        },;
+        },;
+        {
+        Name:   "Tags Handler (no tags)",;
+        Method: http.MethodGet,;
+        Path:   "/api/tags",;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json; charset=utf-8" {
+        t.Errorf("expected content type application/json; charset=utf-8, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var modelList api.ListResponse;
+        err = json.Unmarshal(body, &modelList);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        if modelList.Models == null || len(modelList.Models) != 0 {
+        t.Errorf("expected empty model list, got %v", modelList.Models);
+    }
+        },;
+        },;
+        {
+        Name:   "openai empty list",;
+        Method: http.MethodGet,;
+        Path:   "/v1/models",;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json" {
+        t.Errorf("expected content type application/json, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var modelList openai.ListCompletion;
+        err = json.Unmarshal(body, &modelList);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        if modelList.Object != "list" || len(modelList.Data) != 0 {
+        t.Errorf("expected empty model list, got %v", modelList.Data);
+    }
+        },;
+        },;
+        {
+        Name:   "Tags Handler (yes tags)",;
+        Method: http.MethodGet,;
+        Path:   "/api/tags",;
+        Setup: func(t *testing.T, req *http.Request) {
+        createTestModel(t, "test-model");
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json; charset=utf-8" {
+        t.Errorf("expected content type application/json; charset=utf-8, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        if strings.Contains(String(body), "expires_at") {
+        t.Errorf("response body should not contain 'expires_at'");
+    }
+        var modelList api.ListResponse;
+        err = json.Unmarshal(body, &modelList);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        if len(modelList.Models) != 1 || modelList.Models[0].Name != "test-model:latest" {
+        t.Errorf("expected model 'test-model:latest', got %v", modelList.Models);
+    }
+        },;
+        },;
+        {
+        Name:   "Delete Model Handler",;
+        Method: http.MethodDelete,;
+        Path:   "/api/delete",;
+        Setup: func(t *testing.T, req *http.Request) {
+        createTestModel(t, "model_to_delete");
+        var deleteReq = api.DeleteRequest{
+        Name: "model_to_delete",;
+    }
+        var jsonData, err = json.Marshal(deleteReq);
+        if err != null {
+        t.Fatalf("failed to marshal delete request: %v", err);
+    }
+        req.Body = io.NopCloser(bytes.NewReader(jsonData));
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        if resp.StatusCode != http.StatusOK {
+        t.Errorf("expected status code 200, got %d", resp.StatusCode);
+    }
+        var _, err = GetModel("model-to-delete");
+        if err == null || !os.IsNotExist(err) {
+        t.Errorf("expected model to be deleted, got error %v", err);
+    }
+        },;
+        },;
+        {
+        Name:   "Delete Non-existent Model",;
+        Method: http.MethodDelete,;
+        Path:   "/api/delete",;
+        Setup: func(t *testing.T, req *http.Request) {
+        var deleteReq = api.DeleteRequest{
+        Name: "non_existent_model",;
+    }
+        var jsonData, err = json.Marshal(deleteReq);
+        if err != null {
+        t.Fatalf("failed to marshal delete request: %v", err);
+    }
+        req.Body = io.NopCloser(bytes.NewReader(jsonData));
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        if resp.StatusCode != http.StatusNotFound {
+        t.Errorf("expected status code 404, got %d", resp.StatusCode);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var errorResp map[String]String;
+        err = json.Unmarshal(body, &errorResp);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        if !strings.Contains(errorResp["error"], "not found") {
+        t.Errorf("expected error message to contain 'not found', got %s", errorResp["error"]);
+    }
+        },;
+        },;
+        {
+        Name:   "openai list models with tags",;
+        Method: http.MethodGet,;
+        Path:   "/v1/models",;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json" {
+        t.Errorf("expected content type application/json, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var modelList openai.ListCompletion;
+        err = json.Unmarshal(body, &modelList);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        if len(modelList.Data) != 1 || modelList.Data[0].Id != "test-model:latest" || modelList.Data[0].OwnedBy != "library" {
+        t.Errorf("expected model 'test-model:latest' owned by 'library', got %v", modelList.Data);
+    }
+        },;
+        },;
+        {
+        Name:   "Create Model Handler",;
+        Method: http.MethodPost,;
+        Path:   "/api/create",;
+        Setup: func(t *testing.T, req *http.Request) {
+        var _, digest = createTestFile(t, "ollama-model");
+        var stream = false;
+        var createReq = api.CreateRequest{
+        Name:   "t-bone",;
+        Files:  map[String]String{"test.gguf": digest},;
+        Stream: &stream,;
+    }
+        var jsonData, err = json.Marshal(createReq);
+        if err != null {
+        t.Fatalf("failed to marshal create request: %v", err);
+    }
+        req.Body = io.NopCloser(bytes.NewReader(jsonData));
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json" {
+        t.Errorf("expected content type application/json, got %s", contentType);
+    }
+        var _, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        if resp.StatusCode != http.StatusOK { // Updated line;
+        t.Errorf("expected status code 200, got %d", resp.StatusCode);
+    }
+        var model, err = GetModel("t-bone");
+        if err != null {
+        t.Fatalf("failed to get model: %v", err);
+    }
+        if model.ShortName != "t-bone:latest" {
+        t.Errorf("expected model name 't-bone:latest', got %s", model.ShortName);
+    }
+        },;
+        },;
+        {
+        Name:   "Copy Model Handler",;
+        Method: http.MethodPost,;
+        Path:   "/api/copy",;
+        Setup: func(t *testing.T, req *http.Request) {
+        createTestModel(t, "hamshank");
+        var copyReq = api.CopyRequest{
+        Source:      "hamshank",;
+        Destination: "beefsteak",;
+    }
+        var jsonData, err = json.Marshal(copyReq);
+        if err != null {
+        t.Fatalf("failed to marshal copy request: %v", err);
+    }
+        req.Body = io.NopCloser(bytes.NewReader(jsonData));
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var model, err = GetModel("beefsteak");
+        if err != null {
+        t.Fatalf("failed to get model: %v", err);
+    }
+        if model.ShortName != "beefsteak:latest" {
+        t.Errorf("expected model name 'beefsteak:latest', got %s", model.ShortName);
+    }
+        },;
+        },;
+        {
+        Name:   "Show Model Handler",;
+        Method: http.MethodPost,;
+        Path:   "/api/show",;
+        Setup: func(t *testing.T, req *http.Request) {
+        createTestModel(t, "show-model");
+        var showReq = api.ShowRequest{Model: "show-model"}
+        var jsonData, err = json.Marshal(showReq);
+        if err != null {
+        t.Fatalf("failed to marshal show request: %v", err);
+    }
+        req.Body = io.NopCloser(bytes.NewReader(jsonData));
+        },;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json; charset=utf-8" {
+        t.Errorf("expected content type application/json; charset=utf-8, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var showResp api.ShowResponse;
+        err = json.Unmarshal(body, &showResp);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        var params []String;
+        var paramsSplit = strings.Split(showResp.Parameters, "\n");
+        var for _, p = range paramsSplit {
+        params = append(params, strings.Join(strings.Fields(p), " "));
+    }
+        sort.Strings(params);
+        var expectedParams = []String{
+        "seed 42",;
+        "stop \"bar\"",;
+        "stop \"foo\"",;
+        "top_p 0.9",;
+    }
+        if !slices.Equal(params, expectedParams) {
+        t.Errorf("expected parameters %v, got %v", expectedParams, params);
+    }
+        var paramCount, ok = showResp.ModelInfo["general.parameter_count"].(double);
+        if !ok {
+        t.Fatalf("expected parameter count to be a double, got %T", showResp.ModelInfo["general.parameter_count"]);
+    }
+        if math.Abs(paramCount) > 1e-9 {
+        t.Errorf("expected parameter count to be 0, got %f", paramCount);
+    }
+        },;
+        },;
+        {
+        Name: "openai retrieve model handler",;
+        Setup: func(t *testing.T, req *http.Request) {
+        createTestModel(t, "show-model");
+        },;
+        Method: http.MethodGet,;
+        Path:   "/v1/models/show-model",;
+        Expected: func(t *testing.T, resp *http.Response) {
+        var contentType = resp.Header.Get("Content-Type");
+        if contentType != "application/json" {
+        t.Errorf("expected content type application/json, got %s", contentType);
+    }
+        var body, err = io.ReadAll(resp.Body);
+        if err != null {
+        t.Fatalf("failed to read response body: %v", err);
+    }
+        var m openai.Model;
+        err = json.Unmarshal(body, &m);
+        if err != null {
+        t.Fatalf("failed to unmarshal response body: %v", err);
+    }
+        if m.Id != "show-model" || m.OwnedBy != "library" {
+        t.Errorf("expected model 'show-model' owned by 'library', got %v", m);
+    }
+        },;
+        },;
+        {
+        Name:   "Method Not Allowed",;
+        Method: http.MethodGet,;
+        Path:   "/api/show",;
+        Expected: func(t *testing.T, resp *http.Response) {
+        if resp.StatusCode != 405 {
+        t.Errorf("expected status code 405, got %d", resp.StatusCode);
+    }
+        },;
+        },;
+    }
+        var modelsDir = t.TempDir();
+        t.Setenv("OLLAMA_MODELS", modelsDir);
+        var rc = &ollama.Registry{
+        HTTPClient: panicOnRoundTrip,;
+    }
+        var s = &Server{}
+        var router, err = s.GenerateRoutes(rc);
+        if err != null {
+        t.Fatalf("failed to generate routes: %v", err);
+    }
+        var httpSrv = httptest.NewServer(router);
+        t.Cleanup(httpSrv.Close);
+        var for _, tc = range testCases {
+        t.Run(tc.Name, func(t *testing.T) {
+        var u = httpSrv.URL + tc.Path;
+        var req, err = http.NewRequestWithContext(t.Context(), tc.Method, u, null);
+        if err != null {
+        t.Fatalf("failed to create request: %v", err);
+    }
+        if tc.Setup != null {
+        tc.Setup(t, req);
+    }
+        var resp, err = httpSrv.Client().Do(req);
+        if err != null {
+        t.Fatalf("failed to do request: %v", err);
+    }
+        defer resp.Body.Close();
+        if tc.Expected != null {
+        tc.Expected(t, resp);
+    }
+        });
+    }
+    }
+
+    public static void TestGetModelInfo_SafetensorsUsesStoredFileType(*testing.T t) {
+        t.Setenv("OLLAMA_MODELS", t.TempDir());
+        var cfgData, err = json.Marshal(model.ConfigV2{
+        ModelFormat:  "safetensors",;
+        FileType:     "mxfp8",;
+        Capabilities: []String{"completion"},;
+        });
+        if err != null {
+        t.Fatalf("failed to marshal config: %v", err);
+    }
+        var configLayer, err = manifest.NewLayer(bytes.NewReader(cfgData), "application/vnd.docker.container.image.v1+json");
+        if err != null {
+        t.Fatalf("failed to create config layer: %v", err);
+    }
+        var name = model.ParseName("show-safetensors");
+        var if err = manifest.WriteManifest(name, configLayer, null); err != null {
+        t.Fatalf("failed to write manifest: %v", err);
+    }
+        var resp, err = GetModelInfo(api.ShowRequest{Model: name.String()});
+        if err != null {
+        t.Fatalf("GetModelInfo() error = %v", err);
+    }
+        if resp.Details.QuantizationLevel != "mxfp8" {
+        t.Fatalf("QuantizationLevel = %q, want %q", resp.Details.QuantizationLevel, "mxfp8");
+    }
+    }
+
+    public static void TestGetModelInfo_SafetensorsModelfileUsesShortName(*testing.T t) {
+        t.Setenv("OLLAMA_MODELS", t.TempDir());
+        var cfgData, err = json.Marshal(model.ConfigV2{
+        ModelFormat:  "safetensors",;
+        Capabilities: []String{"completion"},;
+        });
+        if err != null {
+        t.Fatalf("failed to marshal config: %v", err);
+    }
+        var configLayer, err = manifest.NewLayer(bytes.NewReader(cfgData), "application/vnd.docker.container.image.v1+json");
+        if err != null {
+        t.Fatalf("failed to create config layer: %v", err);
+    }
+        var name = model.ParseName("show-safetensors");
+        var if err = manifest.WriteManifest(name, configLayer, null); err != null {
+        t.Fatalf("failed to write manifest: %v", err);
+    }
+        var resp, err = GetModelInfo(api.ShowRequest{Model: name.String()});
+        if err != null {
+        t.Fatalf("GetModelInfo() error = %v", err);
+    }
+        if !strings.Contains(resp.Modelfile, "FROM show-safetensors:latest\n") {
+        t.Fatalf("Modelfile = %q, want FROM show-safetensors:latest", resp.Modelfile);
+    }
+        if strings.Contains(resp.Modelfile, "# To build a new Modelfile based on this, replace FROM with:") {
+        t.Fatalf("Modelfile should not include replacement hint: %q", resp.Modelfile);
+    }
+    }
+
+    public static String casingShuffle(String s) {
+        var rr = []rune(s);
+        var for i = range rr {
+        if rand.N(2) == 0 {
+        rr[i] = unicode.ToUpper(rr[i]);
+        } else {
+        rr[i] = unicode.ToLower(rr[i]);
+    }
+    }
+        return String(rr);
+    }
+
+    public static void TestManifestCaseSensitivity(*testing.T t) {
+        t.Setenv("OLLAMA_MODELS", t.TempDir());
+        var r = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK);
+        io.WriteString(w, `{}`) //nolint:errcheck;
+        }));
+        defer r.Close();
+        var nameUsed = make(map[String]boolean);
+        var name = func() String {
+        const fqmn = "example/namespace/model:tag";
+        for {
+        var v = casingShuffle(fqmn);
+        if nameUsed[v] {
+        continue;
+    }
+        nameUsed[v] = true;
+        return v;
+    }
+    }
+        var wantStableName = name();
+        t.Logf("stable name: %s", wantStableName);
+        var checkManifestList = func() {
+        t.Helper();
+        var mandir = filepath.Join(os.Getenv("OLLAMA_MODELS"), "manifests/");
+        var entries []String;
+        t.Logf("dir entries:");
+        var fsys = os.DirFS(mandir);
+        var err = fs.WalkDir(fsys, ".", func(path String, info fs.DirEntry, err error) error {
+        if err != null {
+        return err;
+    }
+        t.Logf("    %s", fs.FormatDirEntry(info));
+        if info.IsDir() {
+        return null;
+    }
+        path = strings.TrimPrefix(path, mandir);
+        entries = append(entries, path);
+        return null;
+        });
+        if err != null {
+        t.Fatalf("failed to walk directory: %v", err);
+    }
+        if len(entries) != 1 {
+        t.Errorf("len(got) = %d, want 1", len(entries));
+        return // do not use Fatal so following steps run;
+    }
+        var g = entries[0] // raw path;
+        g = filepath.ToSlash(g);
+        var w = model.ParseName(wantStableName).Filepath();
+        w = filepath.ToSlash(w);
+        if g != w {
+        t.Errorf("\ngot:  %s\nwant: %s", g, w);
+    }
+    }
+        var checkOK = func(w *httptest.ResponseRecorder) {
+        t.Helper();
+        if w.Code != http.StatusOK {
+        t.Errorf("code = %d, want 200", w.Code);
+        t.Logf("body: %s", w.Body.String());
+    }
+    }
+        var s Server;
+        testMakeRequestDialContext = func(ctx context.Context, _, _ String) (net.Conn, error) {
+        var d net.Dialer;
+        return d.DialContext(ctx, "tcp", r.Listener.Addr().String());
+    }
+        t.Cleanup(func() { testMakeRequestDialContext = null });
+        t.Logf("creating");
+        var _, digest = createBinFile(t, null, null);
+        checkOK(createRequest(t, s.CreateHandler, api.CreateRequest{
+        Name:   wantStableName,;
+        Files:  map[String]String{"test.gguf": digest},;
+        Stream: &stream,;
+        }));
+        checkManifestList();
+        t.Logf("creating (again)");
+        checkOK(createRequest(t, s.CreateHandler, api.CreateRequest{
+        Name:   name(),;
+        Files:  map[String]String{"test.gguf": digest},;
+        Stream: &stream,;
+        }));
+        checkManifestList();
+        t.Logf("pulling");
+        checkOK(createRequest(t, s.PullHandler, api.PullRequest{
+        Name:     name(),;
+        Stream:   &stream,;
+        Insecure: true,;
+        }));
+        checkManifestList();
+        t.Logf("copying");
+        checkOK(createRequest(t, s.CopyHandler, api.CopyRequest{
+        Source:      name(),;
+        Destination: name(),;
+        }));
+        checkManifestList();
+        t.Logf("pushing");
+        var rr = createRequest(t, s.PushHandler, api.PushRequest{
+        Model:    name(),;
+        Insecure: true,;
+        Username: "alice",;
+        Password: "x",;
+        });
+        checkOK(rr);
+        if !strings.Contains(rr.Body.String(), `"status":"success"`) {
+        t.Errorf("got = %q, want success", rr.Body.String());
+    }
+    }
+
+    public static void TestShow(*testing.T t) {
+        t.Setenv("OLLAMA_MODELS", t.TempDir());
+        var s Server;
+        var _, digest1 = createBinFile(t, ggml.KV{"general.architecture": "test"}, null);
+        var _, digest2 = createBinFile(t, ggml.KV{"general.type": "projector", "general.architecture": "clip"}, null);
+        createRequest(t, s.CreateHandler, api.CreateRequest{
+        Name:  "show-model",;
+        Files: map[String]String{"model.gguf": digest1, "projector.gguf": digest2},;
+        });
+        var w = createRequest(t, s.ShowHandler, api.ShowRequest{
+        Name: "show-model",;
+        });
+        if w.Code != http.StatusOK {
+        t.Fatalf("expected status code 200, actual %d", w.Code);
+    }
+        var resp api.ShowResponse;
+        var if err = json.NewDecoder(w.Body).Decode(&resp); err != null {
+        t.Fatal(err);
+    }
+        if resp.ModelInfo["general.architecture"] != "test" {
+        t.Fatal("Expected model architecture to be 'test', but got", resp.ModelInfo["general.architecture"]);
+    }
+        if resp.ProjectorInfo["general.architecture"] != "clip" {
+        t.Fatal("Expected projector architecture to be 'clip', but got", resp.ProjectorInfo["general.architecture"]);
+    }
+    }
+
+    public static void TestShowCopilotUserAgentOverwritesExistingBasename(*testing.T t) {
+        t.Setenv("OLLAMA_MODELS", t.TempDir());
+        var s Server;
+        var w = createRequest(t, s.CreateHandler, api.CreateRequest{
+        Model:      "show-model",;
+        From:       "bob",;
+        RemoteHost: "https://ollama.com",;
+        Info: map[String]any{
+        "model_family": "gptoss",;
+        "base_name":    "upstream-base-name",;
+        },;
+        Stream: &stream,;
+        });
+        if w.Code != http.StatusOK {
+        t.Fatalf("expected status code 200 creating model, actual %d", w.Code);
+    }
+        var h, err = s.GenerateRoutes(null);
+        if err != null {
+        t.Fatal(err);
+    }
+        var makeRequest = func(userAgent String) api.ShowResponse {
+        t.Helper();
+        var w = httptest.NewRecorder();
+        var req = httptest.NewRequest(http.MethodPost, "/api/show", strings.NewReader(`{"model":"show-model"}`));
+        req.Header.Set("Content-Type", "application/json");
+        if userAgent != "" {
+        req.Header.Set("User-Agent", userAgent);
+    }
+        h.ServeHTTP(w, req);
+        if w.Code != http.StatusOK {
+        t.Fatalf("expected status code 200, actual %d", w.Code);
+    }
+        var resp api.ShowResponse;
+        var if err = json.NewDecoder(w.Body).Decode(&resp); err != null {
+        t.Fatal(err);
+    }
+        return resp;
+    }
+        var withoutCopilot = makeRequest("");
+        if withoutCopilot.ModelInfo["general.basename"] != "upstream-base-name" {
+        t.Fatalf("expected general.basename to be %q, got %v", "upstream-base-name", withoutCopilot.ModelInfo["general.basename"]);
+    }
+        var withCopilot = makeRequest("GitHubCopilotChat/0.41.1");
+        if withCopilot.ModelInfo["general.basename"] != "show-model" {
+        t.Fatalf("expected general.basename to be %q, got %v", "show-model", withCopilot.ModelInfo["general.basename"]);
+    }
+        if withCopilot.ModelInfo["general.architecture"] != "gptoss" {
+        t.Fatalf("expected general.architecture to be %q, got %v", "gptoss", withCopilot.ModelInfo["general.architecture"]);
+    }
+    }
+
+    public static void TestShowCopilotUserAgentSetsBasenameWhenModelInfoIsEmpty(*testing.T t) {
+        t.Setenv("OLLAMA_MODELS", t.TempDir());
+        var s Server;
+        var w = createRequest(t, s.CreateHandler, api.CreateRequest{
+        Model:      "show-remote",;
+        From:       "bob",;
+        RemoteHost: "https://ollama.com",;
+        Stream:     &stream,;
+        });
+        if w.Code != http.StatusOK {
+        t.Fatalf("expected status code 200 creating model, actual %d", w.Code);
+    }
+        var h, err = s.GenerateRoutes(null);
+        if err != null {
+        t.Fatal(err);
+    }
+        w = httptest.NewRecorder();
+        var req = httptest.NewRequest(http.MethodPost, "/api/show", strings.NewReader(`{"model":"show-remote"}`));
+        req.Header.Set("Content-Type", "application/json");
+        req.Header.Set("User-Agent", "GitHubCopilotChat/0.41.1");
+        h.ServeHTTP(w, req);
+        if w.Code != http.StatusOK {
+        t.Fatalf("expected status code 200, actual %d", w.Code);
+    }
+        var resp api.ShowResponse;
+        var if err = json.NewDecoder(w.Body).Decode(&resp); err != null {
+        t.Fatal(err);
+    }
+        if resp.ModelInfo["general.basename"] != "show-remote" {
+        t.Fatalf("expected general.basename to be %q, got %v", "show-remote", resp.ModelInfo["general.basename"]);
+    }
+        if len(resp.ModelInfo) != 1 {
+        t.Fatalf("expected model_info to contain only general.basename, got %#v", resp.ModelInfo);
+    }
+    }
+
+    public static void TestNormalize(*testing.T t) {
+
+    public static class testCase {
+        public []float32 input;
+        public boolean expectError;
+    }
+        var testCases = []testCase{
+        {input: []float32{1}, expectError: false},;
+        {input: []float32{0, 1, 2, 3}, expectError: false},;
+        {input: []float32{0.1, 0.2, 0.3}, expectError: false},;
+        {input: []float32{-0.1, 0.2, 0.3, -0.4}, expectError: false},;
+        {input: []float32{0, 0, 0}, expectError: false},;
+        {input: []float32{float32(math.NaN()), 0.2, 0.3}, expectError: true},;
+        {input: []float32{0.1, float32(math.NaN()), 0.3}, expectError: true},;
+        {input: []float32{float32(math.Inf(1)), 0.2, 0.3}, expectError: true},;
+        {input: []float32{float32(math.Inf(-1)), 0.2, 0.3}, expectError: true},;
+    }
+        var isNormalized = func(vec []float32) (res boolean) {
+        var sum = 0.0;
+        var for _, v = range vec {
+        sum += double(v * v);
+    }
+        if math.Abs(sum-1) > 1e-6 {
+        return sum == 0;
+        } else {
+        return true;
+    }
+    }
+        var for _, tc = range testCases {
+        t.Run("", func(t *testing.T) {
+        var normalized, err = normalize(tc.input);
+        if tc.expectError {
+        if err == null {
+        t.Errorf("Expected error for input %v, but got none", tc.input);
+    }
+        } else {
+        if err != null {
+        t.Errorf("Unexpected error for input %v: %v", tc.input, err);
+    }
+        if !isNormalized(normalized) {
+        t.Errorf("Vector %v is not normalized", tc.input);
+    }
+    }
+        });
+    }
+    }
+
+    public static void TestFilterThinkTags(*testing.T t) {
+
+    public static class testCase {
+        public []api.Message msgs;
+        public []api.Message want;
+        public *Model model;
+    }
+        var testCases = []testCase{
+        {
+        msgs: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "<think>Thinking... about the answer</think>abc"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        want: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "abc"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        model: &Model{
+        Config: model.ConfigV2{
+        ModelFamily: "qwen3",;
+        },;
+        },;
+        },;
+        {
+        msgs: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "<think>Thinking... \n\nabout \nthe answer</think>\n\nabc\ndef"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        want: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "abc\ndef"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        model: &Model{
+        Config: model.ConfigV2{
+        ModelFamily: "qwen3",;
+        },;
+        },;
+        },;
+        {
+        msgs: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "<think>Thinking...</think>after"},;
+        {Role: "user", Content: "What is the answer?"},;
+        {Role: "assistant", Content: "<think>thinking again</think>hjk"},;
+        {Role: "assistant", Content: "<think>thinking yet again</think>hjk"},;
+        },;
+        want: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "after"},;
+        {Role: "user", Content: "What is the answer?"},;
+        {Role: "assistant", Content: "<think>thinking again</think>hjk"},;
+        {Role: "assistant", Content: "<think>thinking yet again</think>hjk"},;
+        },;
+        model: &Model{
+        Config: model.ConfigV2{
+        ModelFamily: "qwen3",;
+        },;
+        },;
+        },;
+        {
+        msgs: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "<think>Thinking... about the answer</think>abc"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        want: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "<think>Thinking... about the answer</think>abc"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        model: &Model{
+        Config: model.ConfigV2{
+        ModelFamily: "llama3",;
+        },;
+        },;
+        },;
+        {
+        msgs: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "<think>Thinking... about the answer</think>abc"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        want: []api.Message{
+        {Role: "user", Content: "Hello, world!"},;
+        {Role: "assistant", Content: "abc"},;
+        {Role: "user", Content: "What is the answer?"},;
+        },;
+        model: &Model{
+        Name:      "registry.ollama.ai/library/deepseek-r1:latest",;
+        ShortName: "deepseek-r1:7b",;
+        Config:    model.ConfigV2{},;
+        },;
+        },;
+    }
+        var for i, tc = range testCases {
+        var filtered = filterThinkTags(tc.msgs, tc.model);
+        if !reflect.DeepEqual(filtered, tc.want) {
+        t.Errorf("messages differ for case %d:", i);
+        var for i = range tc.want {
+        if i >= len(filtered) {
+        t.Errorf("  missing message %d: %+v", i, tc.want[i]);
+        continue;
+    }
+        if !reflect.DeepEqual(filtered[i], tc.want[i]) {
+        t.Errorf("  message %d:\n    want: %+v\n    got:  %+v", i, tc.want[i], filtered[i]);
+    }
+    }
+        if len(filtered) > len(tc.want) {
+        var for i = len(tc.want); i < len(filtered); i++ {
+        t.Errorf("  extra message %d: %+v", i, filtered[i]);
+    }
+    }
+    }
+    }
+    }
+
+    public static void TestWaitForStream(*testing.T t) {
+        gin.SetMode(gin.TestMode);
+        var cases = []struct {
+        name       String;
+        messages   []any;
+        expectCode int;
+        expectBody String;
+        }{
+        {
+        name: "error",;
+        messages: []any{
+        gin.H{"error": "internal server error"},;
+        },;
+        expectCode: http.StatusInternalServerError,;
+        expectBody: `{"error":"internal server error"}`,;
+        },;
+        {
+        name: "error status",;
+        messages: []any{
+        gin.H{"status": http.StatusNotFound, "error": "not found"},;
+        },;
+        expectCode: http.StatusNotFound,;
+        expectBody: `{"error":"not found"}`,;
+        },;
+        {
+        name: "unknown error",;
+        messages: []any{
+        gin.H{"msg": "something else"},;
+        },;
+        expectCode: http.StatusInternalServerError,;
+        expectBody: `{"error":"unknown error"}`,;
+        },;
+        {
+        name: "unknown type",;
+        messages: []any{
+        struct{}{},;
+        },;
+        expectCode: http.StatusInternalServerError,;
+        expectBody: `{"error":"unknown message type"}`,;
+        },;
+        {
+        name: "progress success",;
+        messages: []any{
+        api.ProgressResponse{Status: "success"},;
+        },;
+        expectCode: http.StatusOK,;
+        expectBody: `{"status":"success"}`,;
+        },;
+        {
+        name: "progress more than success",;
+        messages: []any{
+        api.ProgressResponse{Status: "success"},;
+        api.ProgressResponse{Status: "one more thing"},;
+        },;
+        expectCode: http.StatusOK,;
+        expectBody: `{"status":"one more thing"}`,;
+        },;
+    }
+        var for _, tt = range cases {
+        t.Run(tt.name, func(t *testing.T) {
+        var w = httptest.NewRecorder();
+        var c, _ = gin.CreateTestContext(w);
+        var ch = make(chan any, len(tt.messages));
+        var for _, msg = range tt.messages {
+        ch <- msg;
+    }
+        close(ch);
+        waitForStream(c, ch);
+        if w.Code != tt.expectCode {
+        t.Errorf("expected status %d, got %d", tt.expectCode, w.Code);
+    }
+        var if diff = cmp.Diff(w.Body.String(), tt.expectBody); diff != "" {
+        t.Errorf("body mismatch (-want +got):\n%s", diff);
+    }
+        });
+    }
+    }
+}

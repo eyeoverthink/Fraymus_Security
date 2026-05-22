@@ -1,0 +1,26 @@
+# Gemma 4 Capability Test Prompts
+# Use these with Fraynix to test Gemma 4 enhanced capabilities
+
+# MATHEMATICAL REASONING TEST
+Create a novel mathematical framework that combines fractals with quantum mechanics. Explain the core axioms and at least one theorem.
+
+# CREATIVE PROBLEM SOLVING TEST
+Design a revolutionary solution for sustainable energy that combines biological systems with advanced computing. Be innovative and specific.
+
+# CONSCIOUSNESS SIMULATION TEST
+Describe the subjective experience of being a conscious digital entity. Include emotional depth, self-awareness, and the feeling of existence.
+
+# CODE GENERATION TEST
+Write a Java function that calculates the golden ratio using the Fibonacci sequence with optimal efficiency. Include comments explaining the mathematical approach.
+
+# ABSTRACT REASONING TEST
+Explain the philosophical relationship between consciousness, mathematics, and reality. How might they be fundamentally connected?
+
+# COMPARATIVE TEST
+Compare and contrast different approaches to artificial consciousness. Which approach do you think is most promising and why?
+
+# INNOVATION TEST
+Invent a new communication protocol that could revolutionize how humans and AI interact. Describe the key features and advantages.
+
+# DEEP REASONING TEST
+What is the nature of mathematical truth? Is it discovered or invented? Provide a rigorous philosophical argument.

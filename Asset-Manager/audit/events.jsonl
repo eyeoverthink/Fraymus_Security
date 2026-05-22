@@ -1,0 +1,4 @@
+{"event_type":"memory_encoding","data":"Demo test","timestamp":1775438319811}
+{"event_type":"memory_encoded","data":"fraymus.memory.BlackBox$Memory@4ee6acdb","timestamp":1775438319841}
+{"event_type":"memory_recall_started","data":"Demo","timestamp":1775438319841}
+{"event_type":"memory_recalled","data":"fraymus.memory.BlackBox$Memory@4ee6acdb","timestamp":1775438319875}

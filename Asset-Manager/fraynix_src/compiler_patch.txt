@@ -1,0 +1,37 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+ * KERNEL INTEGRATION PATCH - Gen 143
+ *
+ * Add this to your kernel.c to integrate the compiler:
+ *
+ * 1. At the top of kernel.c, add:
+ *    #include "compiler.c"
+ *
+ * 2. In execute_command(), add this case:
+ *    } else if (kstrncmp(cmd, "run ", 4) == 0) {
+ *        run_script(cmd + 4);
+ *    } else if (kstrcmp(cmd, "forth") == 0 || kstrcmp(cmd, "lang") == 0) {
+ *        compiler_help();
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Example shell commands after integration:
+
+   fray> run 10 5 + .
+   EXECUTING: 10 5 + .
+   → 15
+
+   fray> run 3 dup * .
+   EXECUTING: 3 dup * .
+   → 9
+
+   fray> run 100 !a 50 !b @a @b - .
+   EXECUTING: 100 !a 50 !b @a @b - .
+   → 50
+
+   fray> run phi .
+   EXECUTING: phi .
+   → 1618033
+
+   fray> forth
+   FRAY-FORTH LANGUAGE REFERENCE
+   ...
+*/
